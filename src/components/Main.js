@@ -1,15 +1,6 @@
 import React, { Component } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  Dimensions,
-  TouchableWithoutFeedback
-} from "react-native";
-import Camera from "react-native-camera";
-import CryptoJS from "crypto-js";
-import Config from "react-native-config";
-import Tts from "react-native-tts";
+import { StyleSheet, View, TouchableWithoutFeedback } from "react-native";
+import { RNCamera } from "react-native-camera";
 
 import InfoBar from "./common/InfoBar";
 import Button from "./common/Button";
@@ -28,21 +19,11 @@ export default class Main extends Component {
 
     this.onCaptureClick = this.onCaptureClick.bind(this);
     this.takePicture = this.takePicture.bind(this);
-    this.sendToServer = this.sendToServer.bind(this);
     this.sendToApi = this.sendToApi.bind(this);
-    this.changeLanguage = this.changeLanguage.bind(this);
   }
 
   componentWillMount() {
     console.disableYellowBox = true;
-  }
-
-  componentDidMount() {
-    Tts.speak("Touch the lower part of screen to capture image.");
-  }
-
-  componentWillUnmount() {
-    Tts.stop();
   }
 
   onCaptureClick() {
@@ -53,73 +34,35 @@ export default class Main extends Component {
         backgroundColor: "#EFDC05",
         computing: !this.state.computing
       });
-      Tts.speak("Computing please wait.");
+
       this.takePicture();
     }
   }
 
-  takePicture() {
-    this.camera
-      .capture()
-      .then(image => this.sendToApi(image))
-      .catch(error => {
-        this.setState({
-          status: strings.error,
-          cash: strings.wentWrong,
-          backgroundColor: "#D81159",
-          computing: !this.state.computing
-        });
-        Tts.speak("Error, Please Try again !!!");
-        Tts.speak("Touch the lower part of screen to capture image.");
+  async takePicture() {
+    if (this.camera) {
+      const options = { quality: 0.5, base64: true };
+      const data = await this.camera.takePictureAsync(options);
+      this.sendToApi(data);
+    } else {
+      this.setState({
+        status: strings.error,
+        cash: strings.wentWrong,
+        backgroundColor: "#D81159",
+        computing: !this.state.computing
       });
-  }
-
-  sendToServer(image) {
-    if (image.path) {
-      let timestamp = ((Date.now() / 1000) | 0).toString();
-      let apiKey = Config.APIKEY;
-      let apiSecret = Config.APISECRET;
-      let cloud = Config.CLOUD;
-      let hashString = `timestamp=${timestamp}${apiSecret}`;
-      let signature = CryptoJS.SHA1(hashString).toString();
-      let uploadUrl = `https://api.cloudinary.com/v1_1/${cloud}/image/upload`;
-
-      let formdata = new FormData();
-      formdata.append("file", {
-        uri: image.path,
-        type: "image/jpg",
-        name: "upload.jpg"
-      });
-      formdata.append("timestamp", timestamp);
-      formdata.append("api_key", apiKey);
-      formdata.append("signature", signature);
-
-      fetch(uploadUrl, {
-        method: "post",
-        body: formdata
-      })
-        .then(response => response.json())
-        .then(resolve => {
-          this.sendToApi(resolve.secure_url);
-        })
-        .catch(error => {
-          this.setState({
-            status: strings.error,
-            cash: strings.wentWrong,
-            backgroundColor: "#D81159",
-            computing: !this.state.computing
-          });
-          Tts.speak("Error, Please Try again !!!");
-          Tts.speak("Touch the lower part of screen to capture image.");
-        });
     }
   }
 
-  sendToApi(url) {
-    const apiUrl = "http://0.0.0.0:5000/";
+  sendToApi(image) {
+    const apiUrl = "<<change here>>";
 
     let formData = new FormData();
-    formData.append("url", url);
+    formData.append("file", {
+      uri: image.uri,
+      type: "image/jpg",
+      name: "upload.jpg"
+    });
 
     fetch(apiUrl, {
       method: "post",
@@ -134,28 +77,15 @@ export default class Main extends Component {
           backgroundColor: "#41D3BD",
           computing: !this.state.computing
         });
-        Tts.speak(`Detected ${cash}`);
       })
       .catch(error => {
-        console.log(error);
         this.setState({
           status: strings.error,
           cash: strings.wentWrong,
           backgroundColor: "#D81159",
           computing: !this.state.computing
         });
-        Tts.speak("Error, Please Try again !!!");
-        Tts.speak("Touch the lower part of screen to capture image.");
       });
-  }
-
-  changeLanguage() {
-    strings.setLanguage("ne");
-    this.setState({
-      status: strings.status,
-      cash: strings.cash,
-      buttonString: strings.buttonString
-    });
   }
 
   render() {
@@ -171,25 +101,30 @@ export default class Main extends Component {
           backgroundColor={backgroundColor}
         />
         <View style={camera}>
-          <Camera
-            ref={cam => {
-              this.camera = cam;
+          <RNCamera
+            ref={ref => {
+              this.camera = ref;
             }}
-            style={{ flex: 1 }}
-            aspect={Camera.constants.Aspect.fill}
-            captureQuality={Camera.constants.CaptureQuality.medium}
-            flashMode={Camera.constants.FlashMode.on}
-            captureTarget={Camera.constants.CaptureTarget.temp}
+            style={preview}
+            type={RNCamera.Constants.Type.back}
+            flashMode={RNCamera.Constants.FlashMode.on}
+            permissionDialogTitle={"Permission to use camera"}
+            permissionDialogMessage={
+              "We need your permission to use your camera phone"
+            }
           >
-            <TouchableWithoutFeedback
-              onPress={this.onCaptureClick}
-              onLongPress={this.changeLanguage}
+            <View
+              style={{
+                flex: 0,
+                flexDirection: "row",
+                justifyContent: "center"
+              }}
             >
-              <View style={preview}>
+              <TouchableWithoutFeedback>
                 <Button onPress={this.onCaptureClick}>{buttonString}</Button>
-              </View>
-            </TouchableWithoutFeedback>
-          </Camera>
+              </TouchableWithoutFeedback>
+            </View>
+          </RNCamera>
         </View>
       </View>
     );
